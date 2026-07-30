@@ -18,18 +18,34 @@ export interface Capability {
   category: '交流服务' | '业务服务' | '行动服务'
   recommended: boolean
   defaultOn: boolean
+  isDefault?: boolean // 默认能力（不可关闭）
   recommendFor?: string
 }
 
-// ===== 资料项 =====
-export type MaterialStatus = 'pending' | 'parsing' | 'done' | 'need-fix'
-export interface MaterialItem {
+// ===== 知识库表单 =====
+export type FormFieldType = 'text' | 'number' | 'select' | 'toggle' | 'textarea' | 'conditional'
+export interface KnowledgeFormField {
+  key: string
+  label: string
+  type: FormFieldType
+  options?: string[]
+  placeholder?: string
+  required?: boolean
+  unit?: string
+  conditionKey?: string // 用于 conditional 字段，依赖某个 toggle 字段为 true 时才显示
+}
+export interface KnowledgeFormSection {
   id: string
-  name: string
+  title: string
   desc: string
-  status: MaterialStatus
-  size?: string
-  parseResult?: string
+  icon?: string
+  fields: KnowledgeFormField[]
+}
+export type FormSectionStatus = 'empty' | 'draft' | 'done'
+export interface FormSectionState {
+  id: string
+  status: FormSectionStatus
+  values: Record<string, string | boolean | number>
 }
 
 // ===== 系统连接 =====
@@ -39,6 +55,17 @@ export interface SystemConnection {
   desc: string
   connected: boolean
   status: string
+  lastSync?: string
+}
+
+// ===== 多机器人协同 =====
+export interface CollaborativeRobot {
+  id: string
+  name: string
+  location: string
+  status: 'online' | 'busy' | 'offline'
+  currentPlan: string
+  selected: boolean
 }
 
 // ===== 地图点位 =====
@@ -80,7 +107,6 @@ export interface ServicePlan {
   satisfaction?: number
   currentStep?: number
   capabilities?: string[]
-  materials?: MaterialItem[]
   points?: MapPoint[]
   voice?: VoiceConfig
   robotId?: string
@@ -137,15 +163,6 @@ export interface ChecklistItem {
 }
 
 // ===== 配置流程草稿 =====
-export interface DraftMaterial {
-  id: string
-  name: string
-  status: string
-  desc: string
-  size?: string
-  parseResult?: string
-}
-
 export interface DraftPoint {
   id: string
   name: string
@@ -159,11 +176,12 @@ export interface DraftConfig {
   industry: Industry | null
   scenario: string
   capabilities: string[]
-  materials: DraftMaterial[]
+  knowledgeForms: FormSectionState[]
   points: DraftPoint[]
   voice: VoiceConfig
   robotId: string
-  step: number
+  collaborativeRobots: string[]
+  step: number // 0-3 (四步流程)
 }
 
 // ===== 用户 =====

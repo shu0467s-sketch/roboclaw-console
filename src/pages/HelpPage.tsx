@@ -5,7 +5,7 @@ import { Button } from '../components/shared/Button'
 import { Modal } from '../components/shared/Modal'
 
 export function HelpPage() {
-  const [modal, setModal] = useState<'example' | 'sample' | 'contact' | null>(null)
+  const [modal, setModal] = useState<'example' | 'kbGuide' | 'sample' | 'contact' | null>(null)
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
@@ -41,7 +41,7 @@ export function HelpPage() {
         </Card>
 
         {/* Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
           <Card className="p-6" hover>
             <div className="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center mb-4">
               <Icon name="book" className="w-5 h-5 text-brand-600" />
@@ -52,6 +52,19 @@ export function HelpPage() {
             </p>
             <Button variant="outline" size="sm" onClick={() => setModal('example')}>
               查看示例
+            </Button>
+          </Card>
+
+          <Card className="p-6" hover>
+            <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center mb-4">
+              <Icon name="edit" className="w-5 h-5 text-violet-600" />
+            </div>
+            <h3 className="text-base font-semibold text-slate-800 mb-2">知识库填写说明</h3>
+            <p className="text-sm text-slate-500 leading-relaxed mb-5">
+              了解每个知识库表单的填写要求，能下拉选择的就无需手动输入，系统会自动保存。
+            </p>
+            <Button variant="outline" size="sm" onClick={() => setModal('kbGuide')}>
+              查看说明
             </Button>
           </Card>
 
@@ -87,7 +100,7 @@ export function HelpPage() {
           <h3 className="text-base font-semibold text-slate-800 mb-4">常见问题</h3>
           <div className="space-y-4">
             {[
-              { q: '机器人为什么没有回答我的问题？', a: '可能是因为对应的业务资料尚未上传完成，或者问题不在已配置的 FAQ 范围内。请先检查「上传业务资料」步骤的资料状态。' },
+              { q: '机器人为什么没有回答我的问题？', a: '可能是因为对应的知识库信息尚未填写完成，或者问题不在已配置的常见问题范围内。请先在「知识库配置」步骤检查表单填写状态。' },
               { q: '地图上的地点为什么不能导航？', a: '请确保地图上至少有两个地点，并点击「测试路线」验证路线可达。如果仍有问题，建议检查地点类型是否设置正确。' },
               { q: '发布后如何修改配置？', a: '在「上线运营」>「版本管理」中可以查看历史版本，并通过「恢复版本」回退到历史配置，也可以在「方案配置」中编辑当前方案后重新发布。' },
               { q: '游客模式和正常登录有什么区别？', a: '游客模式可以体验完整的配置流程和测试功能，但无法真实发布上线。如需正式部署机器人服务，请使用企业账号登录。' }
@@ -107,15 +120,39 @@ export function HelpPage() {
           <div className="space-y-2">
             <div className="p-3 rounded-lg bg-slate-50">
               <div className="font-semibold text-slate-800 mb-1">酒店 · 前台接待</div>
-              <div className="text-xs">选择酒店 → 前台接待 → 开启欢迎/问答/酒店介绍 → 上传酒店介绍/房型/FAQ → 设置大堂/前台/餐厅点位 → 配置亲切稳重女声 → 测试发布后上线</div>
+              <div className="text-xs">选择行业(酒店) → 选择业务场景(前台接待) → 在线填写酒店基础信息/房型/设施/常见问题 → 开启欢迎/问答/地点指引，配置亲切稳重女声 → 测试发布后上线</div>
             </div>
             <div className="p-3 rounded-lg bg-slate-50">
               <div className="font-semibold text-slate-800 mb-1">商场 · 商品导购</div>
-              <div className="text-xs">选择商场 → 商品导购 → 开启商品介绍/推荐/带路 → 上传商品资料/价格/FAQ → 设置入口/商品区/收银台 → 配置热情活力女声 → 测试发布后上线</div>
+              <div className="text-xs">选择行业(商场) → 选择业务场景(商品导购) → 在线填写商品信息/价格/活动/常见问题 → 开启商品推荐/活动介绍/带路服务，配置热情活力女声 → 测试发布后上线</div>
             </div>
             <div className="p-3 rounded-lg bg-slate-50">
               <div className="font-semibold text-slate-800 mb-1">展厅 · 展品讲解</div>
-              <div className="text-xs">选择展厅 → 展品讲解 → 开启欢迎/展品介绍/路线导览 → 上传展品信息/路线 → 设置入口/展区/出口 → 配置清晰专业男声 → 测试发布后上线</div>
+              <div className="text-xs">选择行业(展厅) → 选择业务场景(展品讲解) → 在线填写展品信息/推荐路线/活动信息 → 开启展品介绍/路线导览/带路服务，配置清晰专业男声 → 测试发布后上线</div>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={modal === 'kbGuide'} onClose={() => setModal(null)} title="知识库填写说明" width="max-w-lg">
+        <div className="space-y-3 text-sm text-slate-600">
+          <p>知识库配置采用在线填写方式，系统自动保存。以下是填写要点：</p>
+          <div className="space-y-2">
+            <div className="p-3 rounded-lg bg-slate-50">
+              <div className="font-semibold text-slate-800 mb-1">填写原则</div>
+              <div className="text-xs leading-relaxed">能下拉选择的字段无需手动输入；条件字段（如"是否有健身房"选"有"后）会自动展开关联字段；每填写一个表单都会实时显示状态（待填写 / 填写中 / 已完成）。</div>
+            </div>
+            <div className="p-3 rounded-lg bg-slate-50">
+              <div className="font-semibold text-slate-800 mb-1">必填与选填</div>
+              <div className="text-xs leading-relaxed">带红色 * 号的为必填字段（如酒店名称、联系电话、紧急联系人）。选填字段留空不影响发布，但建议尽量完善以提高回答准确率。</div>
+            </div>
+            <div className="p-3 rounded-lg bg-slate-50">
+              <div className="font-semibold text-slate-800 mb-1">已连接系统</div>
+              <div className="text-xs leading-relaxed">部分数据（如房态、商品库存）由已连接系统自动同步，无需手动填写。系统接入由技术团队完成，如有连接异常请联系技术支持。</div>
+            </div>
+            <div className="p-3 rounded-lg bg-slate-50">
+              <div className="font-semibold text-slate-800 mb-1">补充上传</div>
+              <div className="text-xs leading-relaxed">如已有整理好的资料文件，可在知识库配置页面底部通过"补充上传文件"上传，作为在线填写的补充。</div>
             </div>
           </div>
         </div>

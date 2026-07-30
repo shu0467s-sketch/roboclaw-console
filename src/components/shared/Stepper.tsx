@@ -2,17 +2,14 @@ import React from 'react'
 import { Icon } from './Icon'
 
 export const STEP_LABELS = [
-  '选择行业',
   '选择业务场景',
+  '知识库配置',
   '能力配置',
-  '上传业务资料',
-  '空间配置',
-  '语音配置',
   '测试发布'
 ]
 
 interface StepperProps {
-  current: number // 0-6
+  current: number // 0-3
   onStepClick?: (i: number) => void
   maxReached?: number
 }

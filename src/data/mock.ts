@@ -2,7 +2,7 @@ import {
   Industry,
   IndustryOption,
   Capability,
-  MaterialItem,
+  KnowledgeFormSection,
   SystemConnection,
   MapPoint,
   VoiceOption,
@@ -12,7 +12,7 @@ import {
   AlertRecord,
   RunLog,
   ChecklistItem,
-  ChatMessage
+  CollaborativeRobot
 } from '../types'
 
 // ===== 行业与场景 =====
@@ -51,74 +51,309 @@ export const INDUSTRY_LABEL: Record<Industry, string> = {
 }
 
 // ===== 能力列表 =====
+// 默认能力（isDefault: true）不可关闭；可调能力可由用户开关
 export const CAPABILITIES: Capability[] = [
-  { id: 'welcome', name: '主动欢迎', desc: '识别客人靠近后主动问候，并引导对话开始。', category: '交流服务', recommended: true, defaultOn: true },
-  { id: 'answer', name: '回答问题', desc: '根据已导入资料回答营业时间、价格、位置和规则。', category: '交流服务', recommended: true, defaultOn: true },
-  { id: 'multi-turn', name: '多轮交流', desc: '在连续追问中保留上下文，减少重复确认。', category: '交流服务', recommended: true, defaultOn: true },
-  { id: 'hotel-intro', name: '酒店介绍', desc: '介绍酒店品牌、房型、设施和前台服务流程。', category: '业务服务', recommended: true, defaultOn: true },
-  { id: 'product-intro', name: '商品介绍', desc: '介绍商品或展品的卖点、价格、活动和适用人群。', category: '业务服务', recommended: false, defaultOn: false, recommendFor: '导览导购推荐' },
-  { id: 'query', name: '信息查询', desc: '连接已有系统后查询会员、房态、库存或活动信息。', category: '业务服务', recommended: true, defaultOn: true },
-  { id: 'recommend', name: '商品推荐', desc: '根据用户需求推荐商品、展品或活动路线。', category: '业务服务', recommended: false, defaultOn: false, recommendFor: '导览导购推荐' },
-  { id: 'guide', name: '地点指引', desc: '告诉用户目标地点的位置和前往方式。', category: '行动服务', recommended: true, defaultOn: true },
-  { id: 'lead', name: '带路服务', desc: '机器人带领用户前往指定地点，到达后自动返回。', category: '行动服务', recommended: false, defaultOn: false, recommendFor: '导览导购推荐' },
-  { id: 'charge', name: '自动充电', desc: '电量低于阈值时自动返回充电桩，充电完成后继续服务。', category: '行动服务', recommended: true, defaultOn: true },
+  // --- 默认能力 ---
+  { id: 'welcome', name: '主动欢迎', desc: '识别客人靠近后主动问候，引导对话开始。', category: '交流服务', recommended: true, defaultOn: true, isDefault: true },
+  { id: 'answer', name: '基础问答', desc: '根据已配置的知识库回答营业时间、价格、位置和规则。', category: '交流服务', recommended: true, defaultOn: true, isDefault: true },
+  { id: 'multi-turn', name: '多轮交流', desc: '在连续追问中保留上下文，减少重复确认。', category: '交流服务', recommended: true, defaultOn: true, isDefault: true },
+  { id: 'kb-answer', name: '知识库回答', desc: '优先从知识库配置内容中提取准确回答。', category: '业务服务', recommended: true, defaultOn: true, isDefault: true },
+  { id: 'safety', name: '安全兜底回复', desc: '无法回答时礼貌告知并引导联系人工，避免胡乱回答。', category: '交流服务', recommended: true, defaultOn: true, isDefault: true },
+  // --- 可调能力 ---
+  { id: 'guide', name: '地点指引', desc: '告诉客人目标地点的位置和前往方式。', category: '行动服务', recommended: true, defaultOn: true },
+  { id: 'lead', name: '带路服务', desc: '机器人带领客人前往指定地点，到达后自动返回。', category: '行动服务', recommended: false, defaultOn: false, recommendFor: '导览导购推荐' },
+  { id: 'recommend', name: '商品推荐', desc: '根据客人需求推荐商品、展品或活动路线。', category: '业务服务', recommended: false, defaultOn: false, recommendFor: '导览导购推荐' },
+  { id: 'activity', name: '活动介绍', desc: '介绍当前促销活动、专题展览或限时优惠。', category: '业务服务', recommended: false, defaultOn: false, recommendFor: '导览导购推荐' },
+  { id: 'human', name: '转人工提醒', desc: '无法回答或客人主动要求时呼叫人工服务。', category: '交流服务', recommended: true, defaultOn: true },
   { id: 'queue', name: '排队安抚', desc: '排队等候时主动安抚客人情绪并告知预计等待时间。', category: '业务服务', recommended: false, defaultOn: false },
-  { id: 'human', name: '转人工提醒', desc: '无法回答或客人主动要求时呼叫人工服务。', category: '交流服务', recommended: true, defaultOn: true }
+  { id: 'charge', name: '自动充电提醒', desc: '电量低于阈值时自动返回充电桩，充电完成后继续服务。', category: '行动服务', recommended: true, defaultOn: true }
 ]
 
-// ===== 资料项 (按行业) =====
-export const MATERIALS: Record<Industry, MaterialItem[]> = {
+// 需要空间配置的能力
+export const SPACE_RELATED_CAPABILITIES = ['guide', 'lead']
+
+// ===== 知识库表单定义 (按行业) =====
+export const KNOWLEDGE_FORMS: Record<Industry, KnowledgeFormSection[]> = {
   hotel: [
-    { id: 'hotel-intro', name: '酒店介绍', desc: '酒店品牌故事、定位、星级、主要特色', status: 'done', size: '2.4 MB', parseResult: '解析成功，可用于机器人回答。' },
-    { id: 'room-type', name: '房型信息', desc: '房型名称、面积、配置、价格区间', status: 'done', size: '1.8 MB', parseResult: '解析成功，可用于机器人回答。' },
-    { id: 'facility', name: '设施信息', desc: '餐厅、健身房、会议室、停车场等设施营业时间与位置', status: 'pending', desc2: '', parseResult: '' } as MaterialItem,
-    { id: 'faq', name: '常见问题', desc: '入住退房规则、发票、会员权益、交通指引等高频问题', status: 'pending', desc2: '', parseResult: '' } as MaterialItem,
-    { id: 'service-flow', name: '前台服务流程', desc: '入住办理、退房、行李寄存、叫醒服务等流程说明', status: 'pending', desc2: '', parseResult: '' } as MaterialItem,
-    { id: 'night-rule', name: '白天/夜间服务规则', desc: '夜间值班说明、安静模式、紧急联系等规则', status: 'pending', desc2: '', parseResult: '' } as MaterialItem
+    {
+      id: 'hotel-basic',
+      title: '酒店基础信息',
+      desc: '酒店名称、品牌、地址等基础资料',
+      fields: [
+        { key: 'hotelName', label: '酒店名称', type: 'text', placeholder: '如：悦澜酒店', required: true },
+        { key: 'starLevel', label: '酒店星级', type: 'select', options: ['五星', '四星', '三星', '精品酒店', '经济型'] },
+        { key: 'address', label: '酒店地址', type: 'text', placeholder: '详细地址' },
+        { key: 'phone', label: '联系电话', type: 'text', placeholder: '如：0571-88888000', required: true },
+        { key: 'intro', label: '酒店简介', type: 'textarea', placeholder: '品牌故事、定位、主要特色' }
+      ]
+    },
+    {
+      id: 'room-type',
+      title: '房型信息',
+      desc: '房型名称、床型、面积、价格等',
+      fields: [
+        { key: 'roomName', label: '房型名称', type: 'text', placeholder: '如：豪华大床房' },
+        { key: 'bedType', label: '床型', type: 'select', options: ['单人床', '双人床', '大床', '双人标间', '套房'] },
+        { key: 'area', label: '面积', type: 'number', unit: '㎡' },
+        { key: 'breakfast', label: '是否含早餐', type: 'toggle' },
+        { key: 'guestCount', label: '可住人数', type: 'select', options: ['1人', '2人', '3人', '4人'] },
+        { key: 'nonSmoking', label: '是否禁烟', type: 'toggle' },
+        { key: 'priceRange', label: '价格区间', type: 'text', placeholder: '如：380-680元/晚' }
+      ]
+    },
+    {
+      id: 'facility',
+      title: '设施服务',
+      desc: '健身房、餐厅、停车场等设施信息',
+      fields: [
+        { key: 'hasGym', label: '是否有健身房', type: 'toggle' },
+        { key: 'gymTime', label: '健身房开放时间', type: 'conditional', conditionKey: 'hasGym', placeholder: '如：06:00-22:00' },
+        { key: 'gymFloor', label: '健身房所在楼层', type: 'conditional', conditionKey: 'hasGym' },
+        { key: 'hasRestaurant', label: '是否有餐厅', type: 'toggle' },
+        { key: 'restaurantTime', label: '餐厅营业时间', type: 'conditional', conditionKey: 'hasRestaurant', placeholder: '如：07:00-10:00, 11:30-14:00, 17:30-21:00' },
+        { key: 'restaurantFloor', label: '餐厅所在楼层', type: 'conditional', conditionKey: 'hasRestaurant' },
+        { key: 'restaurantDesc', label: '菜系/服务说明', type: 'conditional', conditionKey: 'hasRestaurant', placeholder: '如：中餐、自助餐' },
+        { key: 'hasParking', label: '是否有停车场', type: 'toggle' },
+        { key: 'parkingRule', label: '停车场收费规则', type: 'conditional', conditionKey: 'hasParking', placeholder: '如：免费/10元/小时' },
+        { key: 'parkingEntrance', label: '停车场入口位置', type: 'conditional', conditionKey: 'hasParking' }
+      ]
+    },
+    {
+      id: 'service-time',
+      title: '营业时间',
+      desc: '前台服务、入住退房时间',
+      fields: [
+        { key: 'frontDeskTime', label: '前台服务时间', type: 'text', placeholder: '如：24小时' },
+        { key: 'checkInTime', label: '入住时间', type: 'text', placeholder: '如：14:00后' },
+        { key: 'checkOutTime', label: '退房时间', type: 'text', placeholder: '如：12:00前' }
+      ]
+    },
+    {
+      id: 'faq-hotel',
+      title: '常见问题',
+      desc: '入住退房规则、发票、会员、交通',
+      fields: [
+        { key: 'checkInRule', label: '入住退房规则', type: 'textarea', placeholder: '入住证件要求、退房流程等' },
+        { key: 'invoiceRule', label: '发票政策', type: 'textarea', placeholder: '发票开具说明' },
+        { key: 'memberRule', label: '会员权益', type: 'textarea', placeholder: '会员等级、积分、权益' },
+        { key: 'trafficInfo', label: '交通指引', type: 'textarea', placeholder: '地铁、公交、自驾路线' }
+      ]
+    },
+    {
+      id: 'emergency',
+      title: '紧急联系人',
+      desc: '夜间值班、紧急情况联系人',
+      fields: [
+        { key: 'emergencyName', label: '紧急联系人姓名', type: 'text', required: true },
+        { key: 'emergencyPhone', label: '联系电话', type: 'text', required: true },
+        { key: 'dutyTime', label: '值班时间段', type: 'text', placeholder: '如：22:00-08:00' }
+      ]
+    },
+    {
+      id: 'service-rule',
+      title: '服务规则',
+      desc: '夜间服务、安静模式等特殊规则',
+      fields: [
+        { key: 'nightService', label: '夜间服务说明', type: 'textarea', placeholder: '夜间值班模式说明' },
+        { key: 'quietTime', label: '安静模式时间', type: 'text', placeholder: '如：22:00-07:00' },
+        { key: 'specialRule', label: '特殊服务说明', type: 'textarea', placeholder: '其他需要机器人遵守的规则' }
+      ]
+    }
   ],
   mall: [
-    { id: 'product-info', name: '商品资料', desc: '商品名称、分类、卖点、适用人群', status: 'done', size: '5.2 MB', parseResult: '解析成功，可用于机器人回答。' },
-    { id: 'product-price', name: '商品价格', desc: '价格、促销价、会员价信息', status: 'pending', desc2: '', parseResult: '' } as MaterialItem,
-    { id: 'product-sell', name: '商品卖点', desc: '核心卖点、推荐话术、对比优势', status: 'pending', desc2: '', parseResult: '' } as MaterialItem,
-    { id: 'stock', name: '库存信息', desc: '库存状态、补货周期、缺货替代方案', status: 'pending', desc2: '', parseResult: '' } as MaterialItem,
-    { id: 'promotion', name: '促销活动', desc: '满减、折扣、赠品、限时活动规则', status: 'pending', desc2: '', parseResult: '' } as MaterialItem,
-    { id: 'faq-mall', name: '常见问题', desc: '退换货、会员、停车、营业时间等', status: 'pending', desc2: '', parseResult: '' } as MaterialItem
+    {
+      id: 'mall-basic',
+      title: '商场基础信息',
+      desc: '商场名称、地址、营业时间',
+      fields: [
+        { key: 'mallName', label: '商场名称', type: 'text', required: true },
+        { key: 'address', label: '商场地址', type: 'text' },
+        { key: 'phone', label: '客服电话', type: 'text' },
+        { key: 'openHours', label: '营业时间', type: 'text', placeholder: '如：10:00-22:00' },
+        { key: 'intro', label: '商场简介', type: 'textarea' }
+      ]
+    },
+    {
+      id: 'product-info',
+      title: '商品基础信息',
+      desc: '商品名称、分类、卖点',
+      fields: [
+        { key: 'productName', label: '商品名称', type: 'text' },
+        { key: 'category', label: '商品分类', type: 'select', options: ['服装', '数码', '美妆', '食品', '家居', '其他'] },
+        { key: 'sellPoint', label: '商品卖点', type: 'textarea', placeholder: '核心卖点、推荐话术' }
+      ]
+    },
+    {
+      id: 'price-promo',
+      title: '价格活动信息',
+      desc: '价格、促销、会员价',
+      fields: [
+        { key: 'price', label: '商品价格', type: 'text', placeholder: '如：299元' },
+        { key: 'promoPrice', label: '促销价', type: 'text', placeholder: '如：活动价199元' },
+        { key: 'promoDesc', label: '促销活动说明', type: 'textarea', placeholder: '满减、折扣、赠品等' }
+      ]
+    },
+    {
+      id: 'stock-info',
+      title: '库存状态说明',
+      desc: '库存状态、补货说明',
+      fields: [
+        { key: 'stockStatus', label: '库存状态', type: 'select', options: ['充足', '紧张', '缺货'] },
+        { key: 'restockNote', label: '补货说明', type: 'text', placeholder: '如：预计3天后到货' }
+      ]
+    },
+    {
+      id: 'faq-mall',
+      title: '常见问题',
+      desc: '退换货、会员、停车',
+      fields: [
+        { key: 'returnRule', label: '退换货政策', type: 'textarea' },
+        { key: 'memberRule', label: '会员权益', type: 'textarea' },
+        { key: 'parkingInfo', label: '停车信息', type: 'textarea' }
+      ]
+    },
+    {
+      id: 'service-rule-mall',
+      title: '服务规则',
+      desc: '特殊服务说明',
+      fields: [
+        { key: 'specialRule', label: '特殊服务说明', type: 'textarea', placeholder: '其他需要机器人遵守的规则' }
+      ]
+    }
   ],
   exhibition: [
-    { id: 'exhibit-info', name: '展品信息', desc: '展品名称、背景、亮点、讲解词', status: 'done', size: '8.1 MB', parseResult: '解析成功，可用于机器人回答。' },
-    { id: 'exhibit-sell', name: '展品亮点', desc: '核心亮点、互动内容、推荐路线', status: 'pending', desc2: '', parseResult: '' } as MaterialItem,
-    { id: 'route', name: '参观路线', desc: '推荐参观路线、时长、必看展品', status: 'pending', desc2: '', parseResult: '' } as MaterialItem,
-    { id: 'activity', name: '活动安排', desc: '讲解时间、互动活动、专题展览', status: 'pending', desc2: '', parseResult: '' } as MaterialItem,
-    { id: 'faq-exh', name: '常见问题', desc: '门票、导览器、拍照、寄存等', status: 'pending', desc2: '', parseResult: '' } as MaterialItem
+    {
+      id: 'exh-basic',
+      title: '展厅基础信息',
+      desc: '展厅名称、地址、开放时间',
+      fields: [
+        { key: 'exhName', label: '展厅名称', type: 'text', required: true },
+        { key: 'address', label: '展厅地址', type: 'text' },
+        { key: 'openHours', label: '开放时间', type: 'text', placeholder: '如：09:00-17:00' },
+        { key: 'intro', label: '展厅简介', type: 'textarea' }
+      ]
+    },
+    {
+      id: 'exhibit-info',
+      title: '展品基础信息',
+      desc: '展品名称、背景、亮点',
+      fields: [
+        { key: 'exhibitName', label: '展品名称', type: 'text' },
+        { key: 'category', label: '展品分类', type: 'select', options: ['科技', '历史', '艺术', '自然', '其他'] },
+        { key: 'highlight', label: '展品亮点', type: 'textarea', placeholder: '核心亮点、互动内容' }
+      ]
+    },
+    {
+      id: 'route-info',
+      title: '推荐路线',
+      desc: '参观路线、时长、必看展品',
+      fields: [
+        { key: 'routeName', label: '路线名称', type: 'text', placeholder: '如：经典路线' },
+        { key: 'duration', label: '参观时长', type: 'text', placeholder: '如：约40分钟' },
+        { key: 'routeDesc', label: '路线说明', type: 'textarea', placeholder: '推荐参观顺序和必看展品' }
+      ]
+    },
+    {
+      id: 'activity-exh',
+      title: '活动信息',
+      desc: '讲解时间、互动活动',
+      fields: [
+        { key: 'schedule', label: '讲解时间', type: 'text', placeholder: '如：10:00, 14:00, 16:00' },
+        { key: 'activityDesc', label: '活动说明', type: 'textarea' }
+      ]
+    },
+    {
+      id: 'faq-exh',
+      title: '常见问题',
+      desc: '门票、导览器、拍照',
+      fields: [
+        { key: 'ticketInfo', label: '门票信息', type: 'textarea' },
+        { key: 'guideInfo', label: '导览器说明', type: 'textarea' },
+        { key: 'photoRule', label: '拍照规则', type: 'textarea' }
+      ]
+    },
+    {
+      id: 'service-rule-exh',
+      title: '服务规则',
+      desc: '特殊服务说明',
+      fields: [
+        { key: 'specialRule', label: '特殊服务说明', type: 'textarea' }
+      ]
+    }
   ],
   reception: [
-    { id: 'visitor-rule', name: '访客规则', desc: '登记流程、来访时间、通行区域', status: 'done', size: '1.2 MB', parseResult: '解析成功，可用于机器人回答。' },
-    { id: 'company-intro', name: '企业介绍', desc: '企业简介、组织架构、业务范围', status: 'pending', desc2: '', parseResult: '' } as MaterialItem,
-    { id: 'meeting-room', name: '会议室信息', desc: '会议室位置、容量、设备、预约规则', status: 'pending', desc2: '', parseResult: '' } as MaterialItem,
-    { id: 'faq-rec', name: '常见问题', desc: '停车、就餐、洗手间、WiFi等', status: 'pending', desc2: '', parseResult: '' } as MaterialItem
+    {
+      id: 'company-info',
+      title: '企业信息',
+      desc: '企业简介、组织架构',
+      fields: [
+        { key: 'companyName', label: '企业名称', type: 'text', required: true },
+        { key: 'address', label: '企业地址', type: 'text' },
+        { key: 'intro', label: '企业简介', type: 'textarea' }
+      ]
+    },
+    {
+      id: 'visitor-rule',
+      title: '访客规则',
+      desc: '登记流程、来访时间、通行区域',
+      fields: [
+        { key: 'registerFlow', label: '登记流程', type: 'textarea', placeholder: '访客登记步骤' },
+        { key: 'visitTime', label: '来访时间', type: 'text', placeholder: '如：09:00-18:00' },
+        { key: 'accessArea', label: '通行区域', type: 'textarea', placeholder: '允许访客进入的区域' }
+      ]
+    },
+    {
+      id: 'meeting-room',
+      title: '会议室信息',
+      desc: '会议室位置、容量、设备',
+      fields: [
+        { key: 'roomName', label: '会议室名称', type: 'text', placeholder: '如：301会议室' },
+        { key: 'capacity', label: '容纳人数', type: 'select', options: ['6人', '10人', '20人', '50人', '100人以上'] },
+        { key: 'equipment', label: '设备配置', type: 'text', placeholder: '如：投影、音响、白板' },
+        { key: 'floor', label: '所在楼层', type: 'text' }
+      ]
+    },
+    {
+      id: 'faq-rec',
+      title: '常见问题',
+      desc: '停车、就餐、WiFi',
+      fields: [
+        { key: 'parkingInfo', label: '停车信息', type: 'textarea' },
+        { key: 'diningInfo', label: '就餐信息', type: 'textarea' },
+        { key: 'wifiInfo', label: 'WiFi信息', type: 'text', placeholder: '如：Guest-WiFi / 密码12345678' }
+      ]
+    },
+    {
+      id: 'service-rule-rec',
+      title: '服务规则',
+      desc: '特殊服务说明',
+      fields: [
+        { key: 'specialRule', label: '特殊服务说明', type: 'textarea' }
+      ]
+    }
   ]
 }
 
-// ===== 系统连接 (按行业) =====
+// ===== 已连接系统 (按行业) =====
 export const SYSTEMS: Record<Industry, SystemConnection[]> = {
   hotel: [
-    { id: 'pms', name: '酒店管理系统', desc: '连接后可读取房态、入住流程、房务信息', connected: true, status: '连接正常' },
-    { id: 'member', name: '会员系统', desc: '连接后可查询会员等级、积分、权益', connected: false, status: '点击模拟连接' },
-    { id: 'ticket', name: '工单/客服系统', desc: '连接后可转接人工客服和创建工单', connected: false, status: '点击模拟连接' }
+    { id: 'pms', name: '酒店管理系统', desc: '已连接，可读取房态、入住流程、房务信息', connected: true, status: '连接正常', lastSync: '5分钟前' },
+    { id: 'member', name: '会员系统', desc: '已连接，可查询会员等级、积分、权益', connected: true, status: '连接正常', lastSync: '12分钟前' },
+    { id: 'ticket', name: '工单/客服系统', desc: '待连接', connected: false, status: '未连接' }
   ],
   mall: [
-    { id: 'product', name: '商品系统', desc: '连接后可同步商品状态和价格', connected: true, status: '连接正常' },
-    { id: 'stock', name: '库存系统', desc: '连接后可查询实时库存和到货信息', connected: false, status: '点击模拟连接' },
-    { id: 'crm', name: 'CRM系统', desc: '连接后可读取用户画像和偏好', connected: false, status: '点击模拟连接' },
-    { id: 'promo', name: '活动系统', desc: '连接后可同步促销活动和优惠券', connected: false, status: '点击模拟连接' }
+    { id: 'product', name: '商品管理系统', desc: '已连接，可同步商品状态和价格', connected: true, status: '连接正常', lastSync: '3分钟前' },
+    { id: 'stock', name: '库存系统', desc: '已连接，可查询实时库存', connected: true, status: '连接正常', lastSync: '8分钟前' },
+    { id: 'crm', name: 'CRM系统', desc: '待连接', connected: false, status: '未连接' },
+    { id: 'promo', name: '活动系统', desc: '待连接', connected: false, status: '未连接' }
   ],
   exhibition: [
-    { id: 'exhibit-sys', name: '展品管理系统', desc: '连接后可同步展品信息和讲解内容', connected: true, status: '连接正常' },
-    { id: 'ticket-sys', name: '票务系统', desc: '连接后可查询门票和预约信息', connected: false, status: '点击模拟连接' }
+    { id: 'exhibit-sys', name: '展品管理系统', desc: '已连接，可同步展品信息和讲解内容', connected: true, status: '连接正常', lastSync: '6分钟前' },
+    { id: 'ticket-sys', name: '票务系统', desc: '待连接', connected: false, status: '未连接' }
   ],
   reception: [
-    { id: 'visitor-sys', name: '访客管理系统', desc: '连接后可登记访客和发放通行码', connected: true, status: '连接正常' },
-    { id: 'meeting-sys', name: '会议预定系统', desc: '连接后可查询会议室和预约状态', connected: false, status: '点击模拟连接' }
+    { id: 'visitor-sys', name: '访客管理系统', desc: '已连接，可登记访客和发放通行码', connected: true, status: '连接正常', lastSync: '2分钟前' },
+    { id: 'meeting-sys', name: '会议预定系统', desc: '已连接，可查询会议室和预约状态', connected: true, status: '连接正常', lastSync: '10分钟前' }
   ]
 }
 
@@ -138,11 +373,25 @@ export const DEFAULT_WELCOME: Record<Industry, string> = {
   reception: '您好，欢迎来访！我可以帮您登记访客信息、查询会议室位置，请告诉我您需要什么帮助。'
 }
 
+export const VOICE_RECOMMEND: Record<Industry, string> = {
+  hotel: '亲切、稳重',
+  mall: '热情、有活力',
+  exhibition: '清晰、专业',
+  reception: '礼貌、自然'
+}
+
 // ===== 默认地图点位 =====
 export const DEFAULT_POINTS: MapPoint[] = [
   { id: 'p1', name: '大堂入口', type: '入口', x: 15, y: 80 },
   { id: 'p2', name: '服务台', type: '服务点', x: 45, y: 50 },
   { id: 'p3', name: '餐厅', type: '关键地点', x: 75, y: 30 }
+]
+
+// ===== 多机器人协同 =====
+export const COLLABORATIVE_ROBOTS: CollaborativeRobot[] = [
+  { id: 'RoboClaw-A01', name: 'RoboClaw-A01', location: '悦澜酒店大堂', status: 'online', currentPlan: '前台接待', selected: false },
+  { id: 'RoboClaw-A02', name: 'RoboClaw-A02', location: '悦澜酒店餐厅', status: 'online', currentPlan: '未配置', selected: false },
+  { id: 'RoboClaw-A03', name: 'RoboClaw-A03', location: '悦澜酒店三楼', status: 'busy', currentPlan: '设施咨询', selected: false }
 ]
 
 // ===== 服务方案列表 =====
@@ -158,7 +407,7 @@ export const SERVICE_PLANS: ServicePlan[] = [
     onlineDuration: '12天',
     serviceCount: 36,
     satisfaction: 4.7,
-    currentStep: 7,
+    currentStep: 4,
     robotId: 'RoboClaw-A01'
   },
   {
@@ -172,7 +421,7 @@ export const SERVICE_PLANS: ServicePlan[] = [
     onlineDuration: '5天',
     serviceCount: 28,
     satisfaction: 4.5,
-    currentStep: 7,
+    currentStep: 4,
     robotId: 'RoboClaw-E02'
   },
   {
@@ -181,9 +430,9 @@ export const SERVICE_PLANS: ServicePlan[] = [
     industry: 'mall',
     scenario: '商品导购',
     status: 'abnormal',
-    progress: 78,
+    progress: 75,
     lastModified: '周一 09:30',
-    currentStep: 5,
+    currentStep: 3,
     robotId: 'RoboClaw-D01'
   }
 ]
@@ -253,14 +502,24 @@ export const VERSIONS: VersionRecord[] = [
 ]
 
 // ===== 发布检查清单 =====
-export function getChecklist(industry: Industry, capabilities: string[], materials: MaterialItem[], points: MapPoint[], welcomeMsg: string): ChecklistItem[] {
-  const doneMaterials = materials.filter((m) => m.status === 'done').length
+export function getChecklist(
+  scenario: string,
+  capabilities: string[],
+  knowledgeForms: { status: string }[],
+  points: { length: number },
+  welcomeMsg: string,
+  hasSpaceCapability: boolean,
+  chatTested: boolean
+): ChecklistItem[] {
+  const doneForms = knowledgeForms.filter((f) => f.status === 'done').length
+  const draftForms = knowledgeForms.filter((f) => f.status === 'draft').length
   return [
-    { key: 'scenario', label: '业务场景', value: '已选择', passed: true, required: true },
+    { key: 'scenario', label: '业务场景', value: scenario ? '已选择' : '未选择', passed: !!scenario, required: true },
+    { key: 'knowledge', label: '知识库配置', value: `${doneForms} 项已完成${draftForms > 0 ? `，${draftForms} 项填写中` : ''}`, passed: doneForms > 0, required: true },
     { key: 'capability', label: '能力配置', value: `已开启 ${capabilities.length} 项`, passed: capabilities.length > 0, required: true },
-    { key: 'material', label: '业务资料', value: `${doneMaterials} 项已完成`, passed: doneMaterials > 0, required: true },
-    { key: 'map', label: '空间配置', value: `已设置 ${points.length} 个地点`, passed: points.length > 0, required: industry !== 'hotel' },
-    { key: 'voice', label: '欢迎语', value: welcomeMsg ? '已配置' : '未配置', passed: !!welcomeMsg, required: true }
+    { key: 'space', label: '空间配置', value: hasSpaceCapability ? `已设置 ${points.length} 个地点` : '未启用带路/地点指引，无需配置', passed: !hasSpaceCapability || points.length > 0, required: hasSpaceCapability },
+    { key: 'voice', label: '语音配置', value: welcomeMsg ? '已配置' : '未配置', passed: !!welcomeMsg, required: true },
+    { key: 'test', label: '测试验证', value: chatTested ? '已测试' : '未测试', passed: chatTested, required: false }
   ]
 }
 
@@ -273,33 +532,30 @@ export const CHAT_PRESETS: Record<string, string[]> = {
 }
 
 export const CHAT_RESPONSES: Record<string, { text: string; source?: string; route?: string }> = {
-  '早餐在哪里？': { text: '早餐厅位于二楼，开放时间为早上7点到10点。我可以为您指引路线。', source: '设施信息', route: '服务台 → 餐厅' },
-  '几点退房？': { text: '退房时间为中午12点。如需延迟退房，请联系前台或拨打内线8000。', source: '常见问题' },
-  '健身房开放吗？': { text: '健身房位于三楼，全天24小时开放，刷房卡即可进入。', source: '设施信息' },
-  '餐厅怎么走？': { text: '餐厅在二楼，从大堂乘坐电梯上二楼右转即到。我可以带您前往。', source: '设施信息', route: '大堂入口 → 餐厅' },
-  '现在能办理入住吗？': { text: '可以，前台现在可以为您办理入住。请出示身份证和预订信息。', source: '前台服务流程' },
-  '夜间有前台服务吗？': { text: '夜间22:00后前台转为无人值守模式，您可通过机器人办理入住、咨询或联系值班人员。', source: '夜间服务规则' },
-  '有什么新品？': { text: '本周新品有智能音箱Pro、无线降噪耳机和便携咖啡机，都在一楼新品区，我可以带您去看看。', source: '商品资料', route: '入口 → 新品区' },
-  '帮我推荐适合送礼的商品': { text: '根据您的需求，推荐智能音箱Pro礼盒版，包装精美、适合商务送礼，原价899元，活动价799元。', source: '商品资料' },
-  '今天有什么活动？': { text: '今天一楼中庭有品牌日满减活动，满500减50；二楼有会员专属抽奖。', source: '促销活动' },
+  '早餐在哪里？': { text: '早餐厅位于二楼，开放时间为早上7点到10点。我可以为您指引路线。', source: '设施服务', route: '服务台 → 餐厅' },
+  '几点退房？': { text: '退房时间为中午12点。如需延迟退房，请联系前台或拨打内线8000。', source: '营业时间' },
+  '健身房开放吗？': { text: '健身房位于三楼，全天24小时开放，刷房卡即可进入。', source: '设施服务' },
+  '餐厅怎么走？': { text: '餐厅在二楼，从大堂乘坐电梯上二楼右转即到。我可以带您前往。', source: '设施服务', route: '大堂入口 → 餐厅' },
+  '现在能办理入住吗？': { text: '可以，前台现在可以为您办理入住。请出示身份证和预订信息。', source: '服务规则' },
+  '夜间有前台服务吗？': { text: '夜间22:00后前台转为无人值守模式，您可通过机器人办理入住、咨询或联系值班人员。', source: '服务规则' },
+  '有什么新品？': { text: '本周新品有智能音箱Pro、无线降噪耳机和便携咖啡机，都在一楼新品区，我可以带您去看看。', source: '商品基础信息', route: '入口 → 新品区' },
+  '帮我推荐适合送礼的商品': { text: '根据您的需求，推荐智能音箱Pro礼盒版，包装精美、适合商务送礼，原价899元，活动价799元。', source: '商品基础信息' },
+  '今天有什么活动？': { text: '今天一楼中庭有品牌日满减活动，满500减50；二楼有会员专属抽奖。', source: '价格活动信息' },
   '带我去智能家居区': { text: '智能家居区在一楼B区，我来带您过去，大约需要1分钟。', source: '空间配置', route: '入口 → 智能家居区' },
-  '这个展品有什么亮点？': { text: '这件展品是2026年最新研发的仿生机械臂，亮点是13自由度灵巧手和0.1mm精度力反馈，您可以体验一下互动演示。', source: '展品信息' },
-  '参观路线是什么？': { text: '推荐路线：入口 → 科技展区 → 互动体验区 → 产品展示区 → 出口，全程约40分钟。我可以为您带路。', source: '参观路线', route: '入口 → 科技展区' },
+  '这个展品有什么亮点？': { text: '这件展品是2026年最新研发的仿生机械臂，亮点是13自由度灵巧手和0.1mm精度力反馈，您可以体验一下互动演示。', source: '展品基础信息' },
+  '参观路线是什么？': { text: '推荐路线：入口 → 科技展区 → 互动体验区 → 产品展示区 → 出口，全程约40分钟。我可以为您带路。', source: '推荐路线', route: '入口 → 科技展区' },
   '带我去科技展区': { text: '科技展区在二楼左侧，跟我来，大约需要2分钟到达。', source: '空间配置', route: '入口 → 科技展区' },
   '我要登记访客': { text: '好的，请告诉我您要拜访的部门或人员姓名，我来帮您登记并发放访客码。', source: '访客规则' },
   '会议室在哪里？': { text: '会议室在三楼，A区301-305为小型会议室，B区306-310为大型会议室。请告诉我您要去的会议室编号。', source: '会议室信息' }
 }
 
 export function getChatResponse(question: string): { text: string; source?: string; route?: string } {
-  // 精确匹配
   if (CHAT_RESPONSES[question]) return CHAT_RESPONSES[question]
-  // 模糊匹配
   for (const key of Object.keys(CHAT_RESPONSES)) {
     if (question.includes(key) || key.includes(question)) return CHAT_RESPONSES[key]
   }
-  // 默认回复
   return {
-    text: '这个问题我暂时无法回答，可能需要补充相关业务资料。您可以尝试上传更多资料，或联系技术支持。',
+    text: '这个问题我暂时无法回答，可能需要补充相关知识库信息。您可以尝试完善知识库配置，或联系技术支持。',
     source: '未命中'
   }
 }

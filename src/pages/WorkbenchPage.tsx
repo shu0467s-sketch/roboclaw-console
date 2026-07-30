@@ -74,7 +74,7 @@ export function WorkbenchPage({ user, plans, onNewPlan, onContinuePlan, onNaviga
                 从「新建服务方案」开始
               </h2>
               <p className="text-brand-100 text-sm leading-relaxed max-w-lg mb-5">
-                按统一流程完成机器人上线准备：选择行业 → 选择业务场景 → 配置能力 → 上传资料 → 空间配置 → 语音配置 → 测试发布。
+                按统一流程完成机器人上线准备：选择业务场景 → 知识库配置 → 能力配置 → 测试发布。
               </p>
               <div className="flex flex-wrap gap-1.5 mb-6">
                 {STEP_LABELS.map((s, i) => (
@@ -146,7 +146,7 @@ export function WorkbenchPage({ user, plans, onNewPlan, onContinuePlan, onNaviga
                 </div>
                 <div className="text-base font-semibold text-slate-800 mb-1">新建服务方案</div>
                 <div className="text-xs text-slate-400 text-center max-w-[180px]">
-                  从选择行业开始，按统一流程完成机器人服务上线
+                  从选择业务场景开始，按统一流程完成机器人服务上线
                 </div>
               </div>
             </button>
