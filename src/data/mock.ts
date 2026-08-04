@@ -115,7 +115,13 @@ export const KNOWLEDGE_FORMS: Record<Industry, KnowledgeFormSection[]> = {
         { key: 'restaurantDesc', label: '菜系/服务说明', type: 'conditional', conditionKey: 'hasRestaurant', placeholder: '如：中餐、自助餐' },
         { key: 'hasParking', label: '是否有停车场', type: 'toggle' },
         { key: 'parkingRule', label: '停车场收费规则', type: 'conditional', conditionKey: 'hasParking', placeholder: '如：免费/10元/小时' },
-        { key: 'parkingEntrance', label: '停车场入口位置', type: 'conditional', conditionKey: 'hasParking' }
+        { key: 'parkingEntrance', label: '停车场入口位置', type: 'conditional', conditionKey: 'hasParking' },
+        { key: 'hasMeetingRoom', label: '是否有会议室', type: 'toggle' },
+        { key: 'meetingRoomFloor', label: '会议室所在楼层', type: 'conditional', conditionKey: 'hasMeetingRoom' },
+        { key: 'hasLaundry', label: '是否有洗衣房', type: 'toggle' },
+        { key: 'laundryLocation', label: '洗衣房位置', type: 'conditional', conditionKey: 'hasLaundry', placeholder: '如：3楼走廊尽头' },
+        { key: 'hasElevator', label: '是否有电梯', type: 'toggle' },
+        { key: 'elevatorLocation', label: '电梯位置', type: 'conditional', conditionKey: 'hasElevator', placeholder: '如：大堂右侧、各楼层' }
       ]
     },
     {

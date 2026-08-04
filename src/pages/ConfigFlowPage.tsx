@@ -61,6 +61,102 @@ const FORM_STATUS_META: Record<FormSectionStatus, { label: string; color: string
   done: { label: '已完成', color: 'text-emerald-600', bg: 'bg-emerald-50' }
 }
 
+// ===== Auto-parse document =====
+
+type ParseItemStatus = 'pending' | 'accepted' | 'ignored'
+
+interface ParsedItem {
+  id: string
+  sectionId: string
+  fieldKey: string
+  label: string
+  value: string | boolean | number
+  originalValue: string
+  confidence: 'high' | 'medium' | 'low'
+  status: ParseItemStatus
+}
+
+type ParseStatus = 'idle' | 'parsing' | 'parsed' | 'failed' | 'applied'
+
+const PARSE_SECTION_LABELS: Record<string, string> = {
+  'hotel-basic': '酒店基础信息',
+  'room-type': '房型信息',
+  'facility': '设施服务',
+  'service-time': '营业时间',
+  'faq-hotel': '常见问题',
+  'emergency': '紧急联系人',
+  'service-rule': '服务规则'
+}
+
+const SUPPORTED_PARSE_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+]
+
+function isSupportedParseFile(file: File): boolean {
+  return SUPPORTED_PARSE_TYPES.includes(file.type) || file.type.startsWith('image/')
+}
+
+function mockParseHotel(): Promise<ParsedItem[]> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve([
+        { id: 'p-hotel-name', sectionId: 'hotel-basic', fieldKey: 'hotelName', label: '酒店名称', value: '悦澜酒店', originalValue: '悦澜酒店', confidence: 'high', status: 'accepted' },
+        { id: 'p-hotel-star', sectionId: 'hotel-basic', fieldKey: 'starLevel', label: '酒店星级', value: '五星', originalValue: '五星', confidence: 'high', status: 'accepted' },
+        { id: 'p-hotel-address', sectionId: 'hotel-basic', fieldKey: 'address', label: '酒店地址', value: '杭州市西湖区龙井路1号', originalValue: '杭州市西湖区龙井路1号', confidence: 'high', status: 'accepted' },
+        { id: 'p-hotel-phone', sectionId: 'hotel-basic', fieldKey: 'phone', label: '联系电话', value: '0571-88888000', originalValue: '0571-88888000', confidence: 'high', status: 'accepted' },
+        { id: 'p-hotel-intro', sectionId: 'hotel-basic', fieldKey: 'intro', label: '酒店简介', value: '悦澜酒店位于西湖景区，提供高端住宿与贴心服务。', originalValue: '悦澜酒店位于西湖景区，提供高端住宿与贴心服务。', confidence: 'medium', status: 'pending' },
+        { id: 'p-room-name', sectionId: 'room-type', fieldKey: 'roomName', label: '房型名称', value: '豪华大床房', originalValue: '豪华大床房', confidence: 'high', status: 'accepted' },
+        { id: 'p-room-bed', sectionId: 'room-type', fieldKey: 'bedType', label: '床型', value: '大床', originalValue: '大床', confidence: 'high', status: 'accepted' },
+        { id: 'p-room-area', sectionId: 'room-type', fieldKey: 'area', label: '面积', value: 42, originalValue: '42', confidence: 'medium', status: 'pending' },
+        { id: 'p-room-breakfast', sectionId: 'room-type', fieldKey: 'breakfast', label: '是否含早餐', value: true, originalValue: 'true', confidence: 'high', status: 'accepted' },
+        { id: 'p-room-guest', sectionId: 'room-type', fieldKey: 'guestCount', label: '可住人数', value: '2人', originalValue: '2人', confidence: 'high', status: 'accepted' },
+        { id: 'p-room-smoke', sectionId: 'room-type', fieldKey: 'nonSmoking', label: '是否禁烟', value: true, originalValue: 'true', confidence: 'medium', status: 'pending' },
+        { id: 'p-room-price', sectionId: 'room-type', fieldKey: 'priceRange', label: '价格区间', value: '880-1280元/晚', originalValue: '880-1280元/晚', confidence: 'low', status: 'pending' },
+        { id: 'p-gym', sectionId: 'facility', fieldKey: 'hasGym', label: '是否有健身房', value: true, originalValue: 'true', confidence: 'high', status: 'accepted' },
+        { id: 'p-gym-time', sectionId: 'facility', fieldKey: 'gymTime', label: '健身房开放时间', value: '06:00-22:00', originalValue: '06:00-22:00', confidence: 'high', status: 'accepted' },
+        { id: 'p-gym-floor', sectionId: 'facility', fieldKey: 'gymFloor', label: '健身房所在楼层', value: '3楼', originalValue: '3楼', confidence: 'medium', status: 'pending' },
+        { id: 'p-restaurant', sectionId: 'facility', fieldKey: 'hasRestaurant', label: '是否有餐厅', value: true, originalValue: 'true', confidence: 'high', status: 'accepted' },
+        { id: 'p-restaurant-time', sectionId: 'facility', fieldKey: 'restaurantTime', label: '餐厅营业时间', value: '07:00-10:00, 11:30-14:00, 17:30-21:00', originalValue: '07:00-10:00, 11:30-14:00, 17:30-21:00', confidence: 'high', status: 'accepted' },
+        { id: 'p-restaurant-floor', sectionId: 'facility', fieldKey: 'restaurantFloor', label: '餐厅所在楼层', value: '2楼', originalValue: '2楼', confidence: 'medium', status: 'pending' },
+        { id: 'p-restaurant-desc', sectionId: 'facility', fieldKey: 'restaurantDesc', label: '菜系/服务说明', value: '中餐、自助餐', originalValue: '中餐、自助餐', confidence: 'medium', status: 'pending' },
+        { id: 'p-parking', sectionId: 'facility', fieldKey: 'hasParking', label: '是否有停车场', value: true, originalValue: 'true', confidence: 'high', status: 'accepted' },
+        { id: 'p-parking-rule', sectionId: 'facility', fieldKey: 'parkingRule', label: '停车场收费规则', value: '住客免费，访客10元/小时', originalValue: '住客免费，访客10元/小时', confidence: 'medium', status: 'pending' },
+        { id: 'p-parking-entrance', sectionId: 'facility', fieldKey: 'parkingEntrance', label: '停车场入口位置', value: '酒店东侧地下入口', originalValue: '酒店东侧地下入口', confidence: 'medium', status: 'pending' },
+        { id: 'p-meeting', sectionId: 'facility', fieldKey: 'hasMeetingRoom', label: '是否有会议室', value: true, originalValue: 'true', confidence: 'medium', status: 'pending' },
+        { id: 'p-meeting-floor', sectionId: 'facility', fieldKey: 'meetingRoomFloor', label: '会议室所在楼层', value: '5楼', originalValue: '5楼', confidence: 'medium', status: 'pending' },
+        { id: 'p-laundry', sectionId: 'facility', fieldKey: 'hasLaundry', label: '是否有洗衣房', value: false, originalValue: 'false', confidence: 'high', status: 'accepted' },
+        { id: 'p-elevator', sectionId: 'facility', fieldKey: 'hasElevator', label: '是否有电梯', value: true, originalValue: 'true', confidence: 'high', status: 'accepted' },
+        { id: 'p-elevator-location', sectionId: 'facility', fieldKey: 'elevatorLocation', label: '电梯位置', value: '大堂右侧、各楼层', originalValue: '大堂右侧、各楼层', confidence: 'medium', status: 'pending' },
+        { id: 'p-front-desk', sectionId: 'service-time', fieldKey: 'frontDeskTime', label: '前台服务时间', value: '24小时', originalValue: '24小时', confidence: 'high', status: 'accepted' },
+        { id: 'p-check-in', sectionId: 'service-time', fieldKey: 'checkInTime', label: '入住时间', value: '14:00后', originalValue: '14:00后', confidence: 'high', status: 'accepted' },
+        { id: 'p-check-out', sectionId: 'service-time', fieldKey: 'checkOutTime', label: '退房时间', value: '12:00前', originalValue: '12:00前', confidence: 'high', status: 'accepted' },
+        { id: 'p-faq-checkin', sectionId: 'faq-hotel', fieldKey: 'checkInRule', label: '入住退房规则', value: '入住需出示有效证件，退房时间为12:00前。', originalValue: '入住需出示有效证件，退房时间为12:00前。', confidence: 'medium', status: 'pending' },
+        { id: 'p-faq-invoice', sectionId: 'faq-hotel', fieldKey: 'invoiceRule', label: '发票政策', value: '可开具增值税普通发票，请在前台办理。', originalValue: '可开具增值税普通发票，请在前台办理。', confidence: 'medium', status: 'pending' },
+        { id: 'p-faq-member', sectionId: 'faq-hotel', fieldKey: 'memberRule', label: '会员权益', value: '会员可享积分兑换、延迟退房等权益。', originalValue: '会员可享积分兑换、延迟退房等权益。', confidence: 'medium', status: 'pending' },
+        { id: 'p-faq-traffic', sectionId: 'faq-hotel', fieldKey: 'trafficInfo', label: '交通指引', value: '地铁1号线龙翔桥站B出口，步行约10分钟。', originalValue: '地铁1号线龙翔桥站B出口，步行约10分钟。', confidence: 'medium', status: 'pending' },
+        { id: 'p-emergency-name', sectionId: 'emergency', fieldKey: 'emergencyName', label: '紧急联系人姓名', value: '张经理', originalValue: '张经理', confidence: 'medium', status: 'pending' },
+        { id: 'p-emergency-phone', sectionId: 'emergency', fieldKey: 'emergencyPhone', label: '联系电话', value: '0571-88888001', originalValue: '0571-88888001', confidence: 'medium', status: 'pending' },
+        { id: 'p-emergency-duty', sectionId: 'emergency', fieldKey: 'dutyTime', label: '值班时间段', value: '22:00-08:00', originalValue: '22:00-08:00', confidence: 'high', status: 'accepted' },
+        { id: 'p-rule-night', sectionId: 'service-rule', fieldKey: 'nightService', label: '夜间服务说明', value: '夜间提供值班前台与机器人协同服务。', originalValue: '夜间提供值班前台与机器人协同服务。', confidence: 'medium', status: 'pending' },
+        { id: 'p-rule-quiet', sectionId: 'service-rule', fieldKey: 'quietTime', label: '安静模式时间', value: '22:00-07:00', originalValue: '22:00-07:00', confidence: 'high', status: 'accepted' },
+        { id: 'p-rule-special', sectionId: 'service-rule', fieldKey: 'specialRule', label: '特殊服务说明', value: '请保持公共区域安静，禁止携带宠物进入餐厅。', originalValue: '请保持公共区域安静，禁止携带宠物进入餐厅。', confidence: 'medium', status: 'pending' }
+      ])
+    }, 1800)
+  })
+}
+
+function mockParseDocument(file: File, industry: Industry): Promise<ParsedItem[]> {
+  if (!isSupportedParseFile(file)) {
+    return new Promise((_, reject) => setTimeout(() => reject(new Error('不支持的文件格式，请上传 PDF、Word、Excel 或图片')), 1200))
+  }
+  if (industry === 'hotel') return mockParseHotel()
+  return new Promise((resolve) => setTimeout(() => resolve([]), 1500))
+}
+
 const SCENARIO_DETAILS: Record<string, { scope: string; caps: string[]; prepare: string[] }> = {
   '前台接待': { scope: '酒店大堂迎宾、入住退房咨询、基础问答', caps: ['主动欢迎', '基础问答', '地点指引'], prepare: ['酒店基础信息', '房型信息', '营业时间'] },
   '设施咨询': { scope: '酒店设施位置、开放时间、使用规则', caps: ['基础问答', '知识库回答', '地点指引'], prepare: ['设施服务', '营业时间', '常见问题'] },
@@ -428,6 +524,221 @@ function ScenarioStep({
   )
 }
 
+// ===== Auto-parse panel =====
+
+interface AutoParsePanelProps {
+  industry: Industry
+  forms: FormSectionState[]
+  onApplyItems: (items: ParsedItem[]) => void
+  onFlashSaved: () => void
+  onFocusSection?: (sectionId: string) => void
+}
+
+function AutoParsePanel({ industry, forms, onApplyItems, onFlashSaved, onFocusSection }: AutoParsePanelProps) {
+  const [status, setStatus] = useState<ParseStatus>('idle')
+  const [file, setFile] = useState<File | null>(null)
+  const [items, setItems] = useState<ParsedItem[]>([])
+  const [error, setError] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const handleFile = async (f: File) => {
+    setFile(f)
+    setStatus('parsing')
+    setError('')
+    try {
+      const result = await mockParseDocument(f, industry)
+      setItems(result)
+      setStatus('parsed')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '解析失败，请重试')
+      setStatus('failed')
+    }
+  }
+
+  const acceptItem = (id: string) => setItems((prev) => prev.map((i) => (i.id === id ? { ...i, status: 'accepted' as const } : i)))
+  const ignoreItem = (id: string) => setItems((prev) => prev.map((i) => (i.id === id ? { ...i, status: 'ignored' as const } : i)))
+  const updateItemValue = (id: string, value: string | boolean | number) =>
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, value, status: 'accepted' as const } : i)))
+
+  const apply = () => {
+    const accepted = items.filter((i) => i.status === 'accepted')
+    if (accepted.length === 0) return
+    onApplyItems(accepted)
+    setStatus('applied')
+    onFlashSaved()
+    const firstSection = accepted[0]?.sectionId
+    if (firstSection) onFocusSection?.(firstSection)
+  }
+
+  const reset = () => {
+    setStatus('idle')
+    setFile(null)
+    setItems([])
+    setError('')
+    if (inputRef.current) inputRef.current.value = ''
+  }
+
+  const grouped = useMemo(() => {
+    const map: Record<string, ParsedItem[]> = {}
+    items.filter((i) => i.status !== 'ignored').forEach((i) => {
+      if (!map[i.sectionId]) map[i.sectionId] = []
+      map[i.sectionId].push(i)
+    })
+    return map
+  }, [items])
+
+  const acceptedCount = items.filter((i) => i.status === 'accepted').length
+  const pendingCount = items.filter((i) => i.status === 'pending').length
+  const ignoredCount = items.filter((i) => i.status === 'ignored').length
+
+  return (
+    <Card className="p-5 mb-6 border-dashed border-2 border-brand-200 bg-brand-50/20">
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-brand-100 flex items-center justify-center">
+            <Icon name="refresh" className="w-5 h-5 text-brand-600" />
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-slate-800">资料自动解析</h3>
+            <p className="text-xs text-slate-500">上传酒店介绍、房型资料、设施说明或常见问题文档，系统会自动解析内容并预填到下方表单，你只需要检查和确认。</p>
+          </div>
+        </div>
+        <span className="badge bg-brand-50 text-brand-600">Beta</span>
+      </div>
+
+      {status === 'idle' && (
+        <div
+          onClick={() => inputRef.current?.click()}
+          className="cursor-pointer rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center hover:border-brand-400 hover:bg-brand-50/30 transition-colors"
+        >
+          <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
+            <Icon name="upload" className="w-6 h-6 text-slate-500" />
+          </div>
+          <div className="text-sm font-medium text-slate-700 mb-1">点击上传资料文件</div>
+          <div className="text-xs text-slate-400">支持 PDF / Word / Excel / 图片</div>
+        </div>
+      )}
+
+      {status === 'parsing' && (
+        <div className="rounded-xl border border-slate-200 bg-white p-6">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="w-5 h-5 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
+            <span className="text-sm font-medium text-slate-700">正在解析资料…</span>
+          </div>
+          <div className="text-xs text-slate-400">{file?.name}，预计需要几秒钟</div>
+        </div>
+      )}
+
+      {status === 'failed' && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-5">
+          <div className="flex items-start gap-3">
+            <Icon name="alert" className="w-5 h-5 text-rose-500 flex-shrink-0" />
+            <div>
+              <div className="text-sm font-medium text-rose-700 mb-1">解析失败</div>
+              <div className="text-xs text-rose-600 mb-3">{error || '无法识别文件内容，请尝试其他文件或手动填写。'}</div>
+              <div className="flex items-center gap-2">
+                <button className="btn-outline text-xs" onClick={() => inputRef.current?.click()}>重新上传</button>
+                <button className="btn-ghost text-xs text-slate-500" onClick={reset}>取消</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {(status === 'parsed' || status === 'applied') && (
+        <div className="space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Icon name={status === 'applied' ? 'check' : 'file'} className={`w-4 h-4 ${status === 'applied' ? 'text-emerald-500' : 'text-brand-600'}`} />
+              <span className="text-sm font-medium text-slate-700">
+                {status === 'applied' ? '已填入表单' : '识别出可填充内容'}
+              </span>
+              <span className="text-xs text-slate-400">
+                已确认 {acceptedCount} 项 · 待确认 {pendingCount} 项{ignoredCount > 0 ? ` · 已忽略 ${ignoredCount} 项` : ''}
+              </span>
+            </div>
+            {status !== 'applied' ? (
+              <div className="flex items-center gap-2">
+                <button className="btn-ghost text-xs" onClick={() => setItems((prev) => prev.map((i) => ({ ...i, status: 'accepted' as const })))}>全部确认</button>
+                <button className="btn-ghost text-xs" onClick={() => setItems((prev) => prev.map((i) => ({ ...i, status: 'ignored' as const })))}>全部忽略</button>
+                <button className="btn-outline text-xs" onClick={() => inputRef.current?.click()}>重新上传</button>
+              </div>
+            ) : (
+              <button className="btn-outline text-xs" onClick={reset}>重新上传</button>
+            )}
+          </div>
+
+          {Object.keys(grouped).length === 0 ? (
+            <div className="text-sm text-slate-500">未识别出可填充内容，请检查文件内容后重试。</div>
+          ) : (
+            <div className="space-y-3">
+              {Object.entries(grouped).map(([sectionId, sectionItems]) => (
+                <div key={sectionId} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                  <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 text-xs font-medium text-slate-600">
+                    {PARSE_SECTION_LABELS[sectionId] || sectionId}
+                  </div>
+                  <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {sectionItems.map((item) => (
+                      <div key={item.id} className={`flex items-start gap-3 p-3 rounded-lg border ${item.status === 'accepted' ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-200 bg-white'}`}>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs text-slate-500">{item.label}</span>
+                            {item.confidence !== 'high' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">需确认</span>}
+                          </div>
+                          {typeof item.value === 'boolean' ? (
+                            <div className="flex items-center gap-2">
+                              <Toggle checked={!!item.value} onChange={(v) => updateItemValue(item.id, v)} size="sm" />
+                              <span className="text-sm text-slate-700">{item.value ? '是' : '否'}</span>
+                            </div>
+                          ) : (
+                            <input
+                              className="input text-sm py-1.5"
+                              value={String(item.value)}
+                              onChange={(e) => updateItemValue(item.id, e.target.value)}
+                            />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {item.status !== 'accepted' && (
+                            <button onClick={() => acceptItem(item.id)} className="p-1.5 rounded hover:bg-emerald-100 text-emerald-600" title="确认"><Icon name="check" className="w-4 h-4" /></button>
+                          )}
+                          {item.status === 'accepted' && (
+                            <button onClick={() => ignoreItem(item.id)} className="p-1.5 rounded hover:bg-slate-100 text-slate-400" title="忽略"><Icon name="close" className="w-4 h-4" /></button>
+                          )}
+                          {item.status !== 'ignored' && item.status !== 'accepted' && (
+                            <button onClick={() => ignoreItem(item.id)} className="p-1.5 rounded hover:bg-rose-100 text-rose-500" title="忽略"><Icon name="close" className="w-4 h-4" /></button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {status !== 'applied' && acceptedCount > 0 && (
+            <div className="flex justify-end">
+              <Button size="sm" onClick={apply}>确认填入表单</Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      <input
+        ref={inputRef}
+        type="file"
+        className="hidden"
+        accept=".pdf,.doc,.docx,.xls,.xlsx,image/*"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) handleFile(f)
+        }}
+      />
+    </Card>
+  )
+}
+
 // ===== Step 1: 知识库配置 =====
 
 function KnowledgeStep({
@@ -453,6 +764,18 @@ function KnowledgeStep({
     flashTimer.current = setTimeout(() => setSavedFlash(false), 1500)
   }
 
+  const flashSaved = () => {
+    setSavedFlash(true)
+    if (flashTimer.current) clearTimeout(flashTimer.current)
+    flashTimer.current = setTimeout(() => setSavedFlash(false), 1500)
+  }
+
+  const applyParsedItems = (acceptedItems: ParsedItem[]) => {
+    acceptedItems.forEach((item) => {
+      onUpdateField(item.sectionId, item.fieldKey, item.value)
+    })
+  }
+
   const doneCount = forms.filter((f) => f.status === 'done').length
   const draftCount = forms.filter((f) => f.status === 'draft').length
 
@@ -466,6 +789,7 @@ function KnowledgeStep({
         <div>
           <h2 className="text-lg font-semibold text-slate-800 mb-1">知识库配置</h2>
           <p className="text-sm text-slate-500">在线填写业务信息，系统自动保存。能下拉选择的就无需手动输入，必要时可补充上传文件。</p>
+          <p className="text-xs text-slate-400 mt-1">系统会优先读取已连接酒店系统的信息；如有补充资料，也可以上传后自动解析并填入表单。</p>
         </div>
         <div className="flex items-center gap-2">
           {savedFlash && (
@@ -478,6 +802,14 @@ function KnowledgeStep({
           {draftCount > 0 && <span className="badge bg-amber-50 text-amber-600">填写中 {draftCount}</span>}
         </div>
       </div>
+
+      <AutoParsePanel
+        industry={industry}
+        forms={forms}
+        onApplyItems={applyParsedItems}
+        onFlashSaved={flashSaved}
+        onFocusSection={(id) => setExpandedId(id)}
+      />
 
       {/* 已连接系统 */}
       <Card className="p-5 mb-6">

@@ -8,8 +8,10 @@ interface ToggleProps {
 
 export function Toggle({ checked, onChange, size = 'md' }: ToggleProps) {
   const w = size === 'sm' ? 'w-9 h-5' : 'w-11 h-6'
-  const knob = size === 'sm' ? 'w-3.5 h-3.5' : 'w-4.5 h-4.5'
-  const translate = size === 'sm' ? (checked ? 'translate-x-4' : 'translate-x-0.5') : (checked ? 'translate-x-5' : 'translate-x-0.5')
+  const knob = size === 'sm' ? 'w-3.5 h-3.5' : 'w-5 h-5'
+  const translate = size === 'sm'
+    ? (checked ? 'translate-x-[20px]' : 'translate-x-0.5')
+    : (checked ? 'translate-x-[22px]' : 'translate-x-0.5')
   return (
     <button
       type="button"
@@ -19,7 +21,7 @@ export function Toggle({ checked, onChange, size = 'md' }: ToggleProps) {
       aria-checked={checked}
     >
       <span
-        className={`absolute top-1/2 -translate-y-1/2 ${knob} ${translate} bg-white rounded-full shadow transition-transform duration-200`}
+        className={`absolute top-1/2 left-0 -translate-y-1/2 ${knob} ${translate} bg-white rounded-full shadow transition-transform duration-200`}
       />
     </button>
   )
