@@ -788,7 +788,7 @@ function KnowledgeStep({
       <div className="flex items-start justify-between mb-6">
         <div>
           <h2 className="text-lg font-semibold text-slate-800 mb-1">知识库配置</h2>
-          <p className="text-sm text-slate-500">在线填写业务信息，系统自动保存。能下拉选择的就无需手动输入，必要时可补充上传文件。</p>
+          <p className="text-sm text-slate-500">在线填写业务信息，系统自动保存。能下拉选择、自动解析的字段就无需手动输入。</p>
           <p className="text-xs text-slate-400 mt-1">系统会优先读取已连接酒店系统的信息；如有补充资料，也可以上传后自动解析并填入表单。</p>
         </div>
         <div className="flex items-center gap-2">
@@ -906,25 +906,114 @@ function KnowledgeStep({
         })}
       </div>
 
-      {/* 补充上传文件 */}
-      <Card className="p-5 mt-6 border-dashed border-2 border-slate-200">
+      {/* 手动增加补充信息 */}
+      <ManualAddCard forms={forms} onAdd={(sectionId, key, value) => handleFieldChange(sectionId, key, value)} />
+    </div>
+  )
+}
+
+function ManualAddCard({
+  forms,
+  onAdd
+}: {
+  forms: FormSectionState[]
+  onAdd: (sectionId: string, key: string, value: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [sectionId, setSectionId] = useState('')
+  const [label, setLabel] = useState('')
+  const [value, setValue] = useState('')
+
+  const sections = forms.map((f) => ({ id: f.id, title: PARSE_SECTION_LABELS[f.id] || f.id }))
+  const selectedSection = forms.find((f) => f.id === sectionId)
+
+  const handleAdd = () => {
+    if (!sectionId || !label) return
+    const key = `extra-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+    onAdd(sectionId, key, value)
+    setLabel('')
+    setValue('')
+    setOpen(false)
+  }
+
+  return (
+    <Card className="p-5 mt-6 border border-slate-200">
+      {!open ? (
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center">
-              <Icon name="upload" className="w-5 h-5 text-slate-500" />
+              <Icon name="plus" className="w-5 h-5 text-slate-500" />
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-slate-700">补充上传文件（可选）</h4>
-              <p className="text-xs text-slate-400">如果已有整理好的资料文件，可直接上传作为补充。</p>
+              <h4 className="text-sm font-semibold text-slate-700">手动增加补充信息</h4>
+              <p className="text-xs text-slate-400">如果资料里还有系统没识别到的字段，可以手动补充填写。</p>
             </div>
           </div>
-          <button className="btn-outline text-xs">
-            <Icon name="upload" className="w-3.5 h-3.5" />
-            上传文件
+          <button className="btn-outline text-xs" onClick={() => { setOpen(true); setSectionId(forms[0]?.id || '') }}>
+            <Icon name="plus" className="w-3.5 h-3.5" />
+            添加
           </button>
         </div>
-      </Card>
-    </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-brand-100 flex items-center justify-center">
+                <Icon name="edit" className="w-5 h-5 text-brand-600" />
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-slate-700">手动增加补充信息</h4>
+                <p className="text-xs text-slate-400">选择要补充的模块，填写字段名称和值。</p>
+              </div>
+            </div>
+            <button className="btn-ghost text-xs text-slate-500" onClick={() => setOpen(false)}>取消</button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <label className="label">所属模块</label>
+              <select
+                className="input text-sm"
+                value={sectionId}
+                onChange={(e) => setSectionId(e.target.value)}
+              >
+                {sections.map((s) => (
+                  <option key={s.id} value={s.id}>{s.title}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">字段名称</label>
+              <input
+                className="input text-sm"
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                placeholder="例如：会员等级说明"
+              />
+            </div>
+            <div>
+              <label className="label">字段值</label>
+              <input
+                className="input text-sm"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder="例如：金卡会员可延迟退房至14:00"
+              />
+            </div>
+          </div>
+          {selectedSection && (
+            <div className="text-xs text-slate-400 flex items-center gap-1">
+              <Icon name="file" className="w-3.5 h-3.5" />
+              将补充到「{PARSE_SECTION_LABELS[selectedSection.id] || selectedSection.id}」
+            </div>
+          )}
+          <div className="flex justify-end">
+            <button className="btn-primary text-sm px-4 py-2" onClick={handleAdd} disabled={!sectionId || !label}>
+              确认添加
+            </button>
+          </div>
+        </div>
+      )}
+    </Card>
   )
 }
 
